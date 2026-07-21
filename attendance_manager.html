@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Manager</title>
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQXR0ZW5kYW5jZSBNYW5hZ2VyIiwic2hvcnRfbmFtZSI6IkF0dGVuZCIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMWEwZDFmIiwidGhlbWVfY29sb3IiOiIjMWEwZDFmIn0=">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #1a0d1f;
+            --card: #2a1a35;
+            --card-hover: #352040;
+            --text: #f0e6f5;
+            --text-dim: #a080b0;
+            --accent: #00e5a0;
+            --accent-dim: #00b87a;
+            --danger: #ff4757;
+            --warning: #ffa502;
+            --safe: #2ed573;
+            --border: #3a2a45;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+        .header {
+            padding: 20px 16px 10px;
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .stat-pill {
+            background: var(--card);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stat-pill .value {
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .target-input {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 13px;
+            width: 30px;
+            text-align: center;
+            outline: none;
+        }
+        .btn-add {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            font-size: 28px;
+            font-weight: 300;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,229,160,0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            z-index: 1000;
+        }
+        .btn-add:hover { transform: scale(1.05); }
+        .btn-add:active { transform: scale(0.95); }
+
+        .subjects-list {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .subject-card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .subject-card:hover { background: var(--card-hover); }
+        .subject-card.danger { border-left: 3px solid var(--danger); }
+        .subject-card.warning { border-left: 3px solid var(--warning); }
+        .subject-card.safe { border-left: 3px solid var(--safe); }
+
+        .subject-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        .subject-name {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+        .subject-code {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+        .percentage-ring {
+            position: relative;
+            width: 60px;
+            height: 60px;
+        }
+        .percentage-ring svg {
+            transform: rotate(-90deg);
+        }
+        .percentage-ring .bg-circle {
+            fill: none;
+            stroke: var(--border);
+            stroke-width: 4;
+        }
+        .percentage-ring .progress-circle {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 4;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        .percentage-ring .percentage-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .attendance-count {
+            font-size: 14px;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+        }
+        .attendance-count span {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        .status-text .highlight {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .status-text .danger-text {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-action {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-present {
+            background: rgba(46, 213, 115, 0.15);
+            color: var(--safe);
+        }
+        .btn-present:hover { background: rgba(46, 213, 115, 0.25); }
+        .btn-absent {
+            background: rgba(255, 71, 87, 0.15);
+            color: var(--danger);
+        }
+        .btn-absent:hover { background: rgba(255, 71, 87, 0.25); }
+
+        .subject-menu {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .subject-menu:hover { background: var(--border); color: var(--text); }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--border);
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus { border-color: var(--accent); }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .modal-buttons button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-cancel {
+            background: var(--border);
+            color: var(--text);
+        }
+        .btn-save {
+            background: var(--accent);
+            color: var(--bg);
+        }
+        .btn-delete {
+            background: var(--danger);
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-dim);
+        }
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            z-index: 100;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 6px 20px;
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 11px;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+        .nav-item.active { color: var(--accent); }
+        .nav-item svg { width: 22px; height: 22px; }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Timetable */
+        .timetable-grid {
+            padding: 16px;
+            display: grid;
+            grid-template-columns: 60px 1fr;
+            gap: 8px;
+        }
+        .day-label {
+            font-size: 12px;
+            color: var(--text-dim);
+            font-weight: 600;
+            text-transform: uppercase;
+            padding-top: 10px;
+        }
+        .day-slots {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .slot {
+            background: var(--card);
+            border-radius: 10px;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .slot-time {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        .slot-subject {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .slot-empty {
+            color: var(--text-dim);
+            font-style: italic;
+            font-size: 13px;
+        }
+        .btn-add-slot {
+            background: var(--border);
+            color: var(--text-dim);
+            border: 1px dashed var(--text-dim);
+            border-radius: 10px;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-add-slot:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Settings */
+        .settings-list {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .setting-item {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .setting-item label {
+            font-size: 15px;
+        }
+        .setting-item input[type="number"] {
+            width: 60px;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            text-align: center;
+            font-size: 15px;
+        }
+        .btn-export, .btn-import, .btn-reset {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: all 0.2s;
+        }
+        .btn-export { background: var(--accent); color: var(--bg); }
+        .btn-import { background: var(--border); color: var(--text); }
+        .btn-reset { background: rgba(255,71,87,0.15); color: var(--danger); }
+
+        .file-input { display: none; }
+    </style>
+</head>
+<body>
+    <!-- HOME PAGE -->
+    <div id="page-home" class="page active">
+        <div class="header">
+            <h1>Attendance Manager</h1>
+            <div class="header-stats">
+                <div class="stat-pill">
+                    Target: <input type="number" class="target-input" id="targetInput" value="75" min="1" max="100">%
+                </div>
+                <div class="stat-pill">
+                    Overall: <span class="value" id="overallPercent">0%</span>
+                </div>
+                <div class="stat-pill">
+                    <span id="currentDate"></span>
+                </div>
+            </div>
+        </div>
+        <div class="subjects-list" id="subjectsList"></div>
+    </div>
+
+    <!-- TIMETABLE PAGE -->
+    <div id="page-timetable" class="page">
+        <div class="header">
+            <h1>Timetable</h1>
+        </div>
+        <div class="timetable-grid" id="timetableGrid"></div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div id="page-settings" class="page">
+        <div class="header">
+            <h1>Settings</h1>
+        </div>
+        <div class="settings-list">
+            <div class="setting-item">
+                <label>Default Target Attendance (%)</label>
+                <input type="number" id="defaultTarget" value="75" min="1" max="100">
+            </div>
+            <button class="btn-export" onclick="exportData()">Export Data (JSON)</button>
+            <button class="btn-import" onclick="document.getElementById('importFile').click()">Import Data (JSON)</button>
+            <input type="file" class="file-input" id="importFile" accept=".json" onchange="importData(this)">
+            <button class="btn-reset" onclick="resetAll()">Reset All Data</button>
+        </div>
+    </div>
+
+    <!-- ADD SUBJECT MODAL -->
+    <div class="modal-overlay" id="addModal">
+        <div class="modal">
+            <h2>Add Subject</h2>
+            <div class="form-group">
+                <label>Subject Name</label>
+                <input type="text" id="subName" placeholder="e.g. Data Structures">
+            </div>
+            <div class="form-group">
+                <label>Subject Code (optional)</label>
+                <input type="text" id="subCode" placeholder="e.g. CS202">
+            </div>
+            <div class="form-group">
+                <label>Classes Attended</label>
+                <input type="number" id="subAttended" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>Total Classes</label>
+                <input type="number" id="subTotal" value="0" min="0">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-save" onclick="saveSubject()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT SUBJECT MODAL -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <h2>Edit Subject</h2>
+            <div class="form-group">
+                <label>Subject Name</label>
+                <input type="text" id="editName">
+            </div>
+            <div class="form-group">
+                <label>Subject Code</label>
+                <input type="text" id="editCode">
+            </div>
+            <div class="form-group">
+                <label>Classes Attended</label>
+                <input type="number" id="editAttended" min="0">
+            </div>
+            <div class="form-group">
+                <label>Total Classes</label>
+                <input type="number" id="editTotal" min="0">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-delete" onclick="deleteSubject()">Delete</button>
+                <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+                <button class="btn-save" onclick="updateSubject()">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD TIMETABLE SLOT MODAL -->
+    <div class="modal-overlay" id="slotModal">
+        <div class="modal">
+            <h2>Add Class Slot</h2>
+            <div class="form-group">
+                <label>Day</label>
+                <select id="slotDay" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px;">
+                    <option value="0">Monday</option>
+                    <option value="1">Tuesday</option>
+                    <option value="2">Wednesday</option>
+                    <option value="3">Thursday</option>
+                    <option value="4">Friday</option>
+                    <option value="5">Saturday</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Time</label>
+                <input type="time" id="slotTime" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px;">
+            </div>
+            <div class="form-group">
+                <label>Subject</label>
+                <select id="slotSubject" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px;"></select>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeSlotModal()">Cancel</button>
+                <button class="btn-save" onclick="saveSlot()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FLOATING ADD BUTTON -->
+    <button class="btn-add" onclick="openModal()">+</button>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="showPage('home')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Home
+        </button>
+        <button class="nav-item" onclick="showPage('timetable')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Timetable
+        </button>
+        <button class="nav-item" onclick="showPage('settings')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Settings
+        </button>
+    </nav>
+
+    <script>
+        // ===== DATA =====
+        let subjects = JSON.parse(localStorage.getItem('attendance_subjects')) || [];
+        let timetable = JSON.parse(localStorage.getItem('attendance_timetable')) || {};
+        let targetPercent = parseInt(localStorage.getItem('attendance_target')) || 75;
+        let editingId = null;
+
+        const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+        // ===== INIT =====
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+        document.getElementById('targetInput').value = targetPercent;
+        document.getElementById('defaultTarget').value = targetPercent;
+
+        document.getElementById('targetInput').addEventListener('change', function() {
+            targetPercent = parseInt(this.value) || 75;
+            localStorage.setItem('attendance_target', targetPercent);
+            renderSubjects();
+        });
+        document.getElementById('defaultTarget').addEventListener('change', function() {
+            targetPercent = parseInt(this.value) || 75;
+            document.getElementById('targetInput').value = targetPercent;
+            localStorage.setItem('attendance_target', targetPercent);
+            renderSubjects();
+        });
+
+        // ===== RENDER SUBJECTS =====
+        function renderSubjects() {
+            const list = document.getElementById('subjectsList');
+            if (subjects.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <h3>No subjects yet</h3>
+                        <p>Tap the + button to add your first subject</p>
+                    </div>
+                `;
+                document.getElementById('overallPercent').textContent = '0%';
+                return;
+            }
+
+            let totalAttended = 0, totalClasses = 0;
+            list.innerHTML = subjects.map(sub => {
+                const pct = sub.total > 0 ? (sub.attended / sub.total * 100) : 0;
+                const circumference = 2 * Math.PI * 26;
+                const offset = circumference - (pct / 100) * circumference;
+                totalAttended += sub.attended;
+                totalClasses += sub.total;
+
+                // Calculate classes needed to reach target
+                let needed = 0;
+                if (pct < targetPercent && sub.total > 0) {
+                    needed = Math.ceil((targetPercent * sub.total - 100 * sub.attended) / (100 - targetPercent));
+                }
+                // Safe bunk count
+                let safeBunk = 0;
+                if (pct > targetPercent && sub.total > 0) {
+                    safeBunk = Math.floor((100 * sub.attended - targetPercent * sub.total) / targetPercent);
+                }
+
+                let statusClass = 'safe';
+                let statusText = '';
+                if (pct < targetPercent) {
+                    statusClass = 'danger';
+                    if (needed > 0) {
+                        statusText = `Attend next <span class="danger-text">${needed}</span> class${needed > 1 ? 'es' : ''} to reach ${targetPercent}%`;
+                    } else {
+                        statusText = `On Track, You can't miss the next class`;
+                    }
+                } else if (pct === targetPercent) {
+                    statusClass = 'warning';
+                    statusText = `Exactly at ${targetPercent}%. You can't miss the next class`;
+                } else {
+                    statusClass = 'safe';
+                    if (safeBunk > 0) {
+                        statusText = `On Track. You can safely bunk <span class="highlight">${safeBunk}</span> more class${safeBunk > 1 ? 'es' : ''}`;
+                    } else {
+                        statusText = `On Track, You can't miss the next class`;
+                    }
+                }
+
+                return `
+                    <div class="subject-card ${statusClass}">
+                        <button class="subject-menu" onclick="openEditModal('${sub.id}')">⋮</button>
+                        <div class="subject-header">
+                            <div>
+                                <div class="subject-name">${escapeHtml(sub.name)}</div>
+                                ${sub.code ? `<div class="subject-code">${escapeHtml(sub.code)}</div>` : ''}
+                            </div>
+                            <div class="percentage-ring">
+                                <svg width="60" height="60" viewBox="0 0 60 60">
+                                    <circle class="bg-circle" cx="30" cy="30" r="26"/>
+                                    <circle class="progress-circle" cx="30" cy="30" r="26"
+                                        stroke-dasharray="${circumference}"
+                                        stroke-dashoffset="${offset}"
+                                        style="stroke: ${pct >= targetPercent ? 'var(--safe)' : pct >= targetPercent-10 ? 'var(--warning)' : 'var(--danger)'}"/>
+                                </svg>
+                                <div class="percentage-text" style="color:${pct >= targetPercent ? 'var(--safe)' : pct >= targetPercent-10 ? 'var(--warning)' : 'var(--danger)'};">${pct.toFixed(1)}%</div>
+                            </div>
+                        </div>
+                        <div class="attendance-count">Attendance: <span>${sub.attended}/${sub.total}</span></div>
+                        <div class="status-text">${statusText}</div>
+                        <div class="action-buttons">
+                            <button class="btn-action btn-present" onclick="markPresent('${sub.id}')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                Present
+                            </button>
+                            <button class="btn-action btn-absent" onclick="markAbsent('${sub.id}')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Absent
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const overall = totalClasses > 0 ? (totalAttended / totalClasses * 100).toFixed(2) : 0;
+            document.getElementById('overallPercent').textContent = overall + '%';
+        }
+
+        // ===== MARK ATTENDANCE =====
+        function markPresent(id) {
+            const sub = subjects.find(s => s.id === id);
+            if (sub) { sub.attended++; sub.total++; save(); }
+        }
+        function markAbsent(id) {
+            const sub = subjects.find(s => s.id === id);
+            if (sub) { sub.total++; save(); }
+        }
+
+        // ===== MODALS =====
+        function openModal() {
+            document.getElementById('addModal').classList.add('active');
+            document.getElementById('subName').focus();
+        }
+        function closeModal() {
+            document.getElementById('addModal').classList.remove('active');
+            document.getElementById('subName').value = '';
+            document.getElementById('subCode').value = '';
+            document.getElementById('subAttended').value = '0';
+            document.getElementById('subTotal').value = '0';
+        }
+        function saveSubject() {
+            const name = document.getElementById('subName').value.trim();
+            if (!name) { alert('Enter subject name'); return; }
+            subjects.push({
+                id: Date.now().toString(),
+                name: name,
+                code: document.getElementById('subCode').value.trim(),
+                attended: parseInt(document.getElementById('subAttended').value) || 0,
+                total: parseInt(document.getElementById('subTotal').value) || 0
+            });
+            save();
+            closeModal();
+        }
+
+        function openEditModal(id) {
+            editingId = id;
+            const sub = subjects.find(s => s.id === id);
+            if (!sub) return;
+            document.getElementById('editName').value = sub.name;
+            document.getElementById('editCode').value = sub.code;
+            document.getElementById('editAttended').value = sub.attended;
+            document.getElementById('editTotal').value = sub.total;
+            document.getElementById('editModal').classList.add('active');
+        }
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            editingId = null;
+        }
+        function updateSubject() {
+            const sub = subjects.find(s => s.id === editingId);
+            if (!sub) return;
+            sub.name = document.getElementById('editName').value.trim();
+            sub.code = document.getElementById('editCode').value.trim();
+            sub.attended = parseInt(document.getElementById('editAttended').value) || 0;
+            sub.total = parseInt(document.getElementById('editTotal').value) || 0;
+            save();
+            closeEditModal();
+        }
+        function deleteSubject() {
+            if (!confirm('Delete this subject?')) return;
+            subjects = subjects.filter(s => s.id !== editingId);
+            save();
+            closeEditModal();
+        }
+
+        // ===== TIMETABLE =====
+        function renderTimetable() {
+            const grid = document.getElementById('timetableGrid');
+            grid.innerHTML = '';
+            days.forEach((day, idx) => {
+                const daySlots = timetable[idx] || [];
+                grid.innerHTML += `<div class="day-label">${day.slice(0,3)}</div>`;
+                const slotsHtml = daySlots.length === 0 
+                    ? `<div class="slot"><span class="slot-empty">No classes</span></div>`
+                    : daySlots.sort((a,b) => a.time.localeCompare(b.time)).map(s => `
+                        <div class="slot">
+                            <div>
+                                <div class="slot-subject">${escapeHtml(s.subject)}</div>
+                                <div class="slot-time">${s.time}</div>
+                            </div>
+                            <button onclick="removeSlot(${idx}, '${s.time}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:18px;">×</button>
+                        </div>
+                    `).join('');
+                grid.innerHTML += `<div class="day-slots">${slotsHtml}<div class="btn-add-slot" onclick="openSlotModal(${idx})">+ Add slot</div></div>`;
+            });
+        }
+        function openSlotModal(dayIdx) {
+            const select = document.getElementById('slotSubject');
+            select.innerHTML = subjects.length === 0 
+                ? '<option>No subjects yet</option>' 
+                : subjects.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+            document.getElementById('slotDay').value = dayIdx;
+            document.getElementById('slotModal').classList.add('active');
+        }
+        function closeSlotModal() {
+            document.getElementById('slotModal').classList.remove('active');
+        }
+        function saveSlot() {
+            const day = parseInt(document.getElementById('slotDay').value);
+            const time = document.getElementById('slotTime').value;
+            const subject = document.getElementById('slotSubject').value;
+            if (!time || subjects.length === 0) return;
+            if (!timetable[day]) timetable[day] = [];
+            timetable[day].push({ time, subject });
+            localStorage.setItem('attendance_timetable', JSON.stringify(timetable));
+            closeSlotModal();
+            renderTimetable();
+        }
+        function removeSlot(day, time) {
+            if (!timetable[day]) return;
+            timetable[day] = timetable[day].filter(s => s.time !== time);
+            localStorage.setItem('attendance_timetable', JSON.stringify(timetable));
+            renderTimetable();
+        }
+
+        // ===== NAVIGATION =====
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('page-' + page).classList.add('active');
+            event.currentTarget.classList.add('active');
+            if (page === 'timetable') renderTimetable();
+        }
+
+        // ===== SETTINGS =====
+        function exportData() {
+            const data = { subjects, timetable, targetPercent, exportedAt: new Date().toISOString() };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'attendance_backup.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        function importData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.subjects) subjects = data.subjects;
+                    if (data.timetable) timetable = data.timetable;
+                    if (data.targetPercent) targetPercent = data.targetPercent;
+                    save();
+                    alert('Data imported successfully!');
+                } catch (err) {
+                    alert('Invalid file format');
+                }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+        function resetAll() {
+            if (!confirm('Delete ALL data? This cannot be undone.')) return;
+            subjects = [];
+            timetable = {};
+            targetPercent = 75;
+            localStorage.clear();
+            renderSubjects();
+            alert('All data cleared');
+        }
+
+        // ===== UTILS =====
+        function save() {
+            localStorage.setItem('attendance_subjects', JSON.stringify(subjects));
+            localStorage.setItem('attendance_timetable', JSON.stringify(timetable));
+            localStorage.setItem('attendance_target', targetPercent);
+            renderSubjects();
+        }
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ===== INIT =====
+        renderSubjects();
+    </script>
+</body>
+</html>
